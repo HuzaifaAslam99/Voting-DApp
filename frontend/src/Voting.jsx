@@ -65,7 +65,7 @@ export default function VotingApp() {
           ) : (
             <button 
               onClick={connectWallet}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all shadow-md shadow-indigo-100"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all shadow-md shadow-indigo-100 cursor-pointer"
             >
               Connect MetaMask
             </button>
@@ -88,7 +88,7 @@ export default function VotingApp() {
                 } ${hasVoted && 'opacity-50 cursor-not-allowed'}`}
               >
                 <span className="font-medium">{name}</span>
-                <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${selected === i ? 'border-indigo-600' : 'border-slate-300'}`}>
+                <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${selected === i ? 'border-indigo-600' : 'border-slate-300'} cursor-pointer`}>
                   {selected === i && <div className="h-2.5 w-2.5 bg-indigo-600 rounded-full" />}
                 </div>
               </button>
@@ -102,7 +102,7 @@ export default function VotingApp() {
               hasVoted 
               ? 'bg-slate-300 cursor-not-allowed' 
               : 'bg-slate-900 hover:bg-black active:scale-[0.98] shadow-slate-200'
-            }`}
+            } cursor-pointer`}
           >
             {hasVoted ? "Submission Received" : "Confirm Vote"}
           </button>
