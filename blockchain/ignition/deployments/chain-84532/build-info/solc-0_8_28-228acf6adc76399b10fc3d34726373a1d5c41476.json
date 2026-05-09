@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-228acf6adc76399b10fc3d34726373a1d5c41476",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.5"
+  },
+  "userSourceNameMap": {
+    "contracts/Voting.sol": "project/contracts/Voting.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/Voting.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\n/**\n * @title Voting\n * @notice Simple on-chain voting — one address, one vote.\n *\n * Flow\n * ────\n * 1. Deploy → pass candidate names to constructor.\n * 2. Anyone calls vote(candidateIndex) to cast their vote.\n * 3. hasVoted[address] prevents double-voting.\n * 4. getVotes(index) and getCandidate(index) let the frontend read results.\n */\ncontract Voting {\n\n    // ── Data structures ───────────────────────────────────────────\n\n    struct Candidate {\n        string name;\n        uint256 voteCount;\n    }\n\n    // Required line: tracks whether an address has already voted\n    mapping(address => bool) public hasVoted;\n\n    Candidate[] public candidates;\n\n    address public owner;          // deployer — can add candidates later\n    bool    public votingOpen;     // owner can open / close voting\n\n    // ── Events ────────────────────────────────────────────────────\n\n    event Voted(address indexed voter, uint256 indexed candidateIndex);\n    event VotingStatusChanged(bool isOpen);\n    event CandidateAdded(string name, uint256 index);\n\n    // ── Modifiers ─────────────────────────────────────────────────\n\n    modifier onlyOwner() {\n        require(msg.sender == owner, \"Not owner\");\n        _;\n    }\n\n    modifier whenOpen() {\n        require(votingOpen, \"Voting is closed\");\n        _;\n    }\n\n    // ── Constructor ───────────────────────────────────────────────\n\n    /**\n     * @param _candidateNames  e.g. [\"Alice\", \"Bob\", \"Charlie\"]\n     */\n    constructor(string[] memory _candidateNames) {\n        owner       = msg.sender;\n        votingOpen  = true;\n\n        for (uint256 i = 0; i < _candidateNames.length; i++) {\n            candidates.push(Candidate({\n                name:      _candidateNames[i],\n                voteCount: 0\n            }));\n        }\n    }\n\n    // ── Core functions ────────────────────────────────────────────\n\n    /**\n     * @notice Cast a vote for a candidate.\n     * @param  candidateIndex  Index in the candidates array (0-based).\n     */\n    function vote(uint256 candidateIndex) external whenOpen {\n        // 1. Must not have voted before\n        require(!hasVoted[msg.sender], \"Already voted\");\n\n        // 2. Index must be valid\n        require(candidateIndex < candidates.length, \"Invalid candidate\");\n\n        // 3. Record the vote\n        hasVoted[msg.sender]                    = true;\n        candidates[candidateIndex].voteCount   += 1;\n\n        emit Voted(msg.sender, candidateIndex);\n    }\n\n    // ── Read functions ────────────────────────────────────────────\n\n    /// @notice Total number of candidates.\n    function candidateCount() external view returns (uint256) {\n        return candidates.length;\n    }\n\n    /// @notice Name and vote count for a candidate.\n    function getCandidate(uint256 index)\n        external view\n        returns (string memory name, uint256 voteCount)\n    {\n        require(index < candidates.length, \"Invalid index\");\n        Candidate storage c = candidates[index];\n        return (c.name, c.voteCount);\n    }\n\n    /// @notice Vote count for a candidate (shorthand).\n    function getVotes(uint256 index) external view returns (uint256) {\n        require(index < candidates.length, \"Invalid index\");\n        return candidates[index].voteCount;\n    }\n\n    /**\n     * @notice Returns the index of the current leader.\n     *         If there's a tie the lower index wins (simple rule).\n     */\n    function leadingCandidate() external view returns (uint256 index, string memory name) {\n        uint256 maxVotes = 0;\n        for (uint256 i = 0; i < candidates.length; i++) {\n            if (candidates[i].voteCount > maxVotes) {\n                maxVotes = candidates[i].voteCount;\n                index    = i;\n            }\n        }\n        name = candidates[index].name;\n    }\n\n    // ── Owner functions ───────────────────────────────────────────\n\n    /// @notice Open or close the voting period.\n    function setVotingStatus(bool _open) external onlyOwner {\n        votingOpen = _open;\n        emit VotingStatusChanged(_open);\n    }\n\n    /// @notice Add a new candidate (only before or during voting).\n    function addCandidate(string calldata _name) external onlyOwner {\n        candidates.push(Candidate({ name: _name, voteCount: 0 }));\n        emit CandidateAdded(_name, candidates.length - 1);\n    }\n}\n"
+      }
+    }
+  }
+}
