@@ -1,152 +1,131 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { contract_address, voting_abi } from "./constants";
 
-const CANDIDATES = ["Alice", "Bob", "Charlie"];
-const MOCK_VOTES = [4, 7, 2];
+const TARGET_CHAIN_ID = "0x14a34";
 
-export default function VotingApp() {
+const VotingDApp = () => {
+
   const [account, setAccount] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [candidates, setCandidates] = useState([]);
   const [hasVoted, setHasVoted] = useState(false);
-  const [votes, setVotes] = useState(MOCK_VOTES);
-  const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState("");
 
+  // Whenever contract or hasVoted changes, fetch latest vote counts
+  useEffect(() => {
+    if (!contract) return;
+    async function fetchCandidates() {
+      const count = Number(await contract.candidateCount());
+      const list = await Promise.all(
+        Array.from({ length: count }, (_, i) =>
+          contract.getCandidate(i).then(([name, voteCount]) => ({
+            name,
+            voteCount: Number(voteCount),
+          }))
+        )
+      );
+      setCandidates(list);
+    }
+    fetchCandidates();
+  }, [contract, hasVoted]); // re-runs when vote is cast
+
   async function connectWallet() {
-    if (!window.ethereum) return alert("Install MetaMask first!");
+    if (!window.ethereum) {
+      setStatus("Please install MetaMask!");
+      return;
+    }
+
+    const currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+    if (currentChainId !== TARGET_CHAIN_ID) {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: TARGET_CHAIN_ID }],
+      });
+    }
+
+    const browserProvider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await browserProvider.getSigner();
+    const addr = await signer.getAddress();
+    const deployedContract = new ethers.Contract(contract_address, voting_abi, signer);
+
+    setAccount(addr);
+    setContract(deployedContract);
+
+    // Check if this wallet already voted
+    const voted = await deployedContract.hasVoted(addr);
+    setHasVoted(voted);
+    setStatus("Wallet connected!");
+  }
+
+  async function vote(index) {
+    if (hasVoted) return setStatus("You already voted!");
     try {
-      const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
-      setAccount(addr);
-      setStatus("Wallet connected successfully!");
+      setStatus("Sending vote...");
+      const tx = await contract.vote(index);
+      await tx.wait();
+      setHasVoted(true); // this triggers useEffect → fetches new counts
+      setStatus(`✅ Voted for ${candidates[index].name}!`);
     } catch (err) {
-      setStatus("Connection failed.");
+      setStatus(err.code === "ACTION_REJECTED" ? "Rejected." : err.message);
     }
   }
 
-  async function castVote() {
-    if (!account) return setStatus("Please connect your wallet.");
-    if (selected === null) return setStatus("Select a candidate first.");
-    if (hasVoted) return setStatus("Limit: One vote per address.");
-
-    // MOCK TRANSACTION LOGIC
-    const updated = [...votes];
-    updated[selected] += 1;
-    setVotes(updated);
-    setHasVoted(true);
-    setStatus(`Success! Confirmed vote for ${CANDIDATES[selected]}`);
-  }
-
-  const totalVotes = votes.reduce((a, b) => a + b, 0);
+  const totalVotes = candidates.reduce((sum, c) => sum + c.voteCount, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 font-sans text-slate-900">
-      <div className="max-w-md mx-auto space-y-6">
-        
-        {/* Header */}
-        <header className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-            Voting <span className="text-indigo-600">DApp</span>
-          </h1>
-          {/* <p className="text-slate-500 text-sm italic">
-            On-chain governance · Transparent · Immutable
-          </p> */}
-        </header>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow w-full max-w-md p-6 space-y-5">
 
-        {/* 1. Wallet Card */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-800">1. Identity</h2>
-            <div className={`h-2 w-2 rounded-full ${account ? 'bg-green-500' : 'bg-slate-300 animate-pulse'}`} />
-          </div>
-          
-          {account ? (
-            <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
-              <p className="text-xs text-slate-400 uppercase font-semibold mb-1">Active Account</p>
-              <p className="text-sm font-mono break-all text-indigo-700">{account}</p>
-            </div>
-          ) : (
-            <button 
-              onClick={connectWallet}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all shadow-md shadow-indigo-100 cursor-pointer"
-            >
-              Connect MetaMask
-            </button>
-          )}
-        </section>
+        <h1 className="text-3xl font-bold text-center text-gray-800">🗳️ Voting DApp</h1>
 
-        {/* 2. Voting Card */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">2. Ballot Cast</h2>
-          <div className="space-y-3">
-            {CANDIDATES.map((name, i) => (
-              <button
-                key={i}
-                disabled={hasVoted}
-                onClick={() => setSelected(i)}
-                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                  selected === i 
-                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                  : 'border-slate-100 hover:border-slate-200 text-slate-600'
-                } ${hasVoted && 'opacity-50 cursor-not-allowed'}`}
-              >
-                <span className="font-medium">{name}</span>
-                <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${selected === i ? 'border-indigo-600' : 'border-slate-300'} cursor-pointer`}>
-                  {selected === i && <div className="h-2.5 w-2.5 bg-indigo-600 rounded-full" />}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={castVote}
-            disabled={hasVoted || selected === null}
-            className={`w-full mt-6 py-4 rounded-xl font-bold text-white transition-all shadow-lg ${
-              hasVoted 
-              ? 'bg-slate-300 cursor-not-allowed' 
-              : 'bg-slate-900 hover:bg-black active:scale-[0.98] shadow-slate-200'
-            } cursor-pointer`}
-          >
-            {hasVoted ? "Submission Received" : "Confirm Vote"}
+        {!account ? (
+          <button onClick={connectWallet} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl cursor-pointer">
+            Connect MetaMask
           </button>
-        </section>
+        ) : (
+          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl py-2 px-3 text-center font-mono break-all">
+            ✅ {account}
+          </p>
+        )}
 
-        {/* 3. Results Card */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-800">3. Live Statistics</h2>
-            <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">
-              TOTAL: {totalVotes}
-            </span>
-          </div>
-          
-          <div className="space-y-5">
-            {CANDIDATES.map((name, i) => {
-              const pct = totalVotes ? Math.round((votes[i] / totalVotes) * 100) : 0;
-              return (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between text-sm font-semibold text-slate-700">
-                    <span>{name}</span>
-                    <span>{votes[i]} <span className="text-slate-400 font-normal">({pct}%)</span></span>
-                  </div>
-                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out" 
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+        <div className="space-y-3">
+          {candidates.length === 0 && (
+            <p className="text-center text-gray-400 text-sm">Connect wallet to load candidates...</p>
+          )}
+          {candidates.map((c, i) => {
+            const pct = totalVotes ? Math.round((c.voteCount / totalVotes) * 100) : 0;
+            return (
+              <div key={i} className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm font-semibold text-gray-700">
+                  <span>{c.name}</span>
+                  <span>{c.voteCount} votes ({pct}%)</span>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                </div>
+                <button
+                  onClick={() => vote(i)}
+                  disabled={!account || hasVoted}
+                  className="w-full py-2 text-sm font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer transition"
+                >
+                  {hasVoted ? "Already Voted" : `Vote for ${c.name}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
 
-        {/* Status Toast */}
         {status && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md bg-white border border-indigo-100 shadow-2xl rounded-2xl p-4 flex items-center gap-3 animate-bounce-short">
-            <div className="h-2 w-2 bg-indigo-600 rounded-full" />
-            <p className="text-sm font-medium text-slate-700">{status}</p>
-          </div>
+          <p className="text-center text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl py-2 px-4">
+            {status}
+          </p>
         )}
 
       </div>
     </div>
   );
 }
+
+
+export default VotingDApp;

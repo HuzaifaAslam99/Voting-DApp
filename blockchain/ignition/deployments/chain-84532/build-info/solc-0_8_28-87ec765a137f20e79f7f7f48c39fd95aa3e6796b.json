@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-87ec765a137f20e79f7f7f48c39fd95aa3e6796b",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.5"
+  },
+  "userSourceNameMap": {
+    "contracts/Voting.sol": "project/contracts/Voting.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/Voting.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract Voting {\n\n    struct Candidate {\n        string name;\n        uint256 voteCount;\n    }\n\n    Candidate[] public candidates;\n    mapping(address => bool) public hasVoted;\n\n    constructor(string[] memory _names) {\n        for (uint256 i = 0; i < _names.length; i++) {\n            candidates.push(Candidate({ name: _names[i], voteCount: 0 }));\n        }\n    }\n\n    function vote(uint256 index) external {\n        require(!hasVoted[msg.sender], \"Already voted\");\n        require(index < candidates.length, \"Invalid candidate\");\n\n        hasVoted[msg.sender] = true;\n        candidates[index].voteCount += 1;\n    }\n\n    function candidateCount() external view returns (uint256) {\n        return candidates.length;\n    }\n\n    function getCandidate(uint256 index) external view returns (string memory name, uint256 voteCount) {\n        require(index < candidates.length, \"Invalid index\");\n        return (candidates[index].name, candidates[index].voteCount);\n    }\n}"
+      }
+    }
+  }
+}
