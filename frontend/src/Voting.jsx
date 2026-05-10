@@ -28,7 +28,7 @@ const VotingDApp = () => {
       setCandidates(list);
     }
     fetchCandidates();
-  }, [contract, hasVoted]); // re-runs when vote is cast
+  }, [contract, hasVoted]);
 
   async function connectWallet() {
     if (!window.ethereum) {
@@ -65,7 +65,7 @@ const VotingDApp = () => {
       const tx = await contract.vote(index);
       await tx.wait();
       setHasVoted(true); // this triggers useEffect → fetches new counts
-      setStatus(`✅ Voted for ${candidates[index].name}!`);
+      setStatus(`Voted for ${candidates[index].name}!`);
     } catch (err) {
       setStatus(err.code === "ACTION_REJECTED" ? "Rejected." : err.message);
     }
@@ -77,7 +77,7 @@ const VotingDApp = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow w-full max-w-md p-6 space-y-5">
 
-        <h1 className="text-3xl font-bold text-center text-gray-800">🗳️ Voting DApp</h1>
+        <h1 className="text-3xl font-bold text-center text-gray-800">Voting DApp</h1>
 
         {!account ? (
           <button onClick={connectWallet} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl cursor-pointer">
